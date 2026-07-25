@@ -1,13 +1,177 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
-  output   = "../generated/prisma"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+enum Role {
+  TENANT
+  LANDLORD
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BANNED
+}
+
+enum PropertyStatus {
+  AVAILABLE
+  UNAVAILABLE
+}
+
+enum RentalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ACTIVE
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum PaymentProvider {
+  STRIPE
+}
+
+model User {
+  id           String     @id @default(uuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  phone        String?
+  avatarUrl    String?
+  role         Role
+  status       UserStatus @default(ACTIVE)
+
+  properties      Property[]      @relation("LandlordProperties")
+  tenantRentals   RentalRequest[] @relation("TenantRentals")
+  landlordRentals RentalRequest[] @relation("LandlordRentals")
+  reviews         Review[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@index([status])
+}
+
+model Category {
+  id   String @id @default(uuid())
+  name String @unique
+  slug String @unique
+
+  properties Property[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Property {
+  id          String         @id @default(uuid())
+  title       String
+  description String
+  address     String
+  city        String
+  area        String?
+  price       Decimal        @db.Decimal(12, 2)
+  bedrooms    Int
+  bathrooms   Int
+  areaSqFt    Int?
+  amenities   String[]
+  images      String[]
+  status      PropertyStatus @default(AVAILABLE)
+  isDeleted   Boolean        @default(false)
+
+  landlordId String
+  categoryId String
+
+  landlord User     @relation("LandlordProperties", fields: [landlordId], references: [id], onDelete: Restrict)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  rentalRequests RentalRequest[]
+  reviews        Review[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([landlordId])
+  @@index([categoryId])
+  @@index([city])
+  @@index([price])
+  @@index([status, isDeleted])
+}
+
+model RentalRequest {
+  id             String       @id @default(uuid())
+  moveInDate     DateTime
+  durationMonths Int
+  message        String?
+  totalAmount    Decimal      @db.Decimal(12, 2)
+  status         RentalStatus @default(PENDING)
+
+  tenantId   String
+  landlordId String
+  propertyId String
+
+  tenant   User     @relation("TenantRentals", fields: [tenantId], references: [id], onDelete: Restrict)
+  landlord User     @relation("LandlordRentals", fields: [landlordId], references: [id], onDelete: Restrict)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+
+  payment Payment?
+  review  Review?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, status])
+  @@index([landlordId, status])
+  @@index([propertyId, status])
+}
+
+model Payment {
+  id              String          @id @default(uuid())
+  transactionId   String?         @unique
+  stripeSessionId String?         @unique
+  amount          Decimal         @db.Decimal(12, 2)
+  currency        String          @default("usd")
+  method          String          @default("card")
+  provider        PaymentProvider @default(STRIPE)
+  status          PaymentStatus   @default(PENDING)
+  paidAt          DateTime?
+
+  rentalRequestId String        @unique
+  rentalRequest   RentalRequest @relation(fields: [rentalRequestId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+model Review {
+  id      String @id @default(uuid())
+  rating  Int
+  comment String
+
+  tenantId        String
+  propertyId      String
+  rentalRequestId String @unique
+
+  tenant        User          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  property      Property      @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  rentalRequest RentalRequest @relation(fields: [rentalRequestId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([tenantId])
 }
