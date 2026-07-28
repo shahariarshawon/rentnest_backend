@@ -1,8 +1,8 @@
 {
   "name": "rentnest-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "RentNest rental property marketplace backend API",
+  "main": "dist/server.js",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -14,16 +14,14 @@
     "prisma:seed": "prisma db seed",
     "prisma:studio": "prisma studio"
   },
-  "keywords": [],
+  "keywords": [
+    "express",
+    "prisma",
+    "postgresql",
+    "rentnest"
+  ],
   "author": "",
   "license": "ISC",
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "^11.8.0",
-      "onFail": "download"
-    }
-  },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.0",
     "@prisma/client": "^7.9.0",
