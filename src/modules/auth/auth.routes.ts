@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticate } from "../../common/middlewares/authenticate.js";
 import { validate } from "../../common/middlewares/validate.js";
+import { asyncHandler } from "../../common/utils/asyncHandler.js";
 import {
   getMe,
   login,
@@ -16,19 +17,19 @@ const router = Router();
 router.post(
   "/register",
   validate(registerSchema),
-  register
+  asyncHandler(register)
 );
 
 router.post(
   "/login",
   validate(loginSchema),
-  login
+  asyncHandler(login)
 );
 
 router.get(
   "/me",
   authenticate,
-  getMe
+  asyncHandler(getMe)
 );
 
 export default router;

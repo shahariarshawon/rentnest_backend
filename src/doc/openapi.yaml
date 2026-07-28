@@ -1,0 +1,780 @@
+openapi: 3.0.3
+info:
+  title: RentNest Rental Property Marketplace API
+  description: Backend REST API for RentNest marketplace enabling Landlords to list properties, Tenants to browse and request rentals with Stripe payment integration, and Admins to moderate the platform.
+  version: 1.0.0
+servers:
+  - url: http://localhost:5000
+    description: Local Development Server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Operation completed successfully
+        data:
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: An error occurred
+        errorDetails:
+          nullable: true
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [TENANT, LANDLORD, ADMIN]
+        status:
+          type: string
+          enum: [ACTIVE, BANNED]
+        createdAt:
+          type: string
+          format: date-time
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+
+    Property:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        area:
+          type: string
+          nullable: true
+        price:
+          type: number
+        bedrooms:
+          type: integer
+        bathrooms:
+          type: integer
+        areaSqFt:
+          type: integer
+          nullable: true
+        amenities:
+          type: array
+          items:
+            type: string
+        images:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [AVAILABLE, UNAVAILABLE]
+        landlordId:
+          type: string
+          format: uuid
+        categoryId:
+          type: string
+          format: uuid
+
+    RentalRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        moveInDate:
+          type: string
+          format: date-time
+        durationMonths:
+          type: integer
+        message:
+          type: string
+          nullable: true
+        totalAmount:
+          type: number
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED, ACTIVE, COMPLETED]
+        tenantId:
+          type: string
+          format: uuid
+        landlordId:
+          type: string
+          format: uuid
+        propertyId:
+          type: string
+          format: uuid
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        transactionId:
+          type: string
+          nullable: true
+        stripeSessionId:
+          type: string
+          nullable: true
+        amount:
+          type: number
+        currency:
+          type: string
+        provider:
+          type: string
+          enum: [STRIPE]
+        status:
+          type: string
+          enum: [PENDING, COMPLETED, FAILED]
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        rentalRequestId:
+          type: string
+          format: uuid
+
+    Review:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+        tenantId:
+          type: string
+          format: uuid
+        propertyId:
+          type: string
+          format: uuid
+        rentalRequestId:
+          type: string
+          format: uuid
+
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: API running status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /api/auth/register:
+    post:
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, role]
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+                phone:
+                  type: string
+                role:
+                  type: string
+                  enum: [TENANT, LANDLORD]
+      responses:
+        '201':
+          description: User registered successfully
+        '400':
+          description: Validation error
+
+  /api/auth/login:
+    post:
+      summary: Login user and get JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+        '401':
+          description: Invalid credentials
+
+  /api/auth/me:
+    get:
+      summary: Get current authenticated user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current user profile
+        '401':
+          description: Unauthorized
+
+  /api/users/profile:
+    get:
+      summary: Get user profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile data
+    patch:
+      summary: Update profile details
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                phone:
+                  type: string
+                avatarUrl:
+                  type: string
+      responses:
+        '200':
+          description: Profile updated
+
+  /api/users/change-password:
+    patch:
+      summary: Change password
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword:
+                  type: string
+                newPassword:
+                  type: string
+      responses:
+        '200':
+          description: Password updated
+
+  /api/categories:
+    get:
+      summary: Get all property categories
+      responses:
+        '200':
+          description: List of categories
+    post:
+      summary: Create category (Admin)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Category created
+
+  /api/categories/{id}:
+    get:
+      summary: Get category by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Category details
+    put:
+      summary: Update category (Admin)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Category updated
+    delete:
+      summary: Delete category (Admin)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Category deleted
+
+  /api/properties:
+    get:
+      summary: Get public rental properties with filters
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: city
+          in: query
+          schema:
+            type: string
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+        - name: minPrice
+          in: query
+          schema:
+            type: number
+        - name: maxPrice
+          in: query
+          schema:
+            type: number
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Paginated properties list
+
+  /api/properties/{id}:
+    get:
+      summary: Get property details by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Detailed property listing
+
+  /api/landlord/properties:
+    get:
+      summary: Get landlord listings
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Landlord property list
+    post:
+      summary: Create property listing (Landlord)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, description, address, city, price, bedrooms, bathrooms, categoryId]
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                address:
+                  type: string
+                city:
+                  type: string
+                price:
+                  type: number
+                bedrooms:
+                  type: integer
+                bathrooms:
+                  type: integer
+                categoryId:
+                  type: string
+                amenities:
+                  type: array
+                  items:
+                    type: string
+                images:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Property listing created
+
+  /api/landlord/properties/{id}:
+    put:
+      summary: Update property listing (Landlord)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Property updated
+    delete:
+      summary: Delete property listing (Landlord)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Property removed
+
+  /api/landlord/properties/{id}/status:
+    patch:
+      summary: Set property status (AVAILABLE/UNAVAILABLE)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [AVAILABLE, UNAVAILABLE]
+      responses:
+        '200':
+          description: Property status updated
+
+  /api/landlord/requests:
+    get:
+      summary: Get rental requests for landlord properties
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of rental requests
+
+  /api/landlord/requests/{id}:
+    patch:
+      summary: Approve or Reject a rental request
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [APPROVED, REJECTED]
+      responses:
+        '200':
+          description: Rental request status updated
+
+  /api/rentals:
+    get:
+      summary: Get tenant rental requests
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Tenant rental request history
+    post:
+      summary: Submit rental request (Tenant)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [propertyId, moveInDate, durationMonths]
+              properties:
+                propertyId:
+                  type: string
+                moveInDate:
+                  type: string
+                  format: date-time
+                durationMonths:
+                  type: integer
+                message:
+                  type: string
+      responses:
+        '201':
+          description: Rental request submitted
+
+  /api/rentals/{id}:
+    get:
+      summary: Get rental request details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rental request details
+
+  /api/payments/create:
+    post:
+      summary: Create Stripe checkout session for approved rental request
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rentalRequestId]
+              properties:
+                rentalRequestId:
+                  type: string
+      responses:
+        '201':
+          description: Payment checkout session created
+
+  /api/payments/confirm:
+    post:
+      summary: Confirm payment and activate rental
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rentalRequestId]
+              properties:
+                rentalRequestId:
+                  type: string
+                stripeSessionId:
+                  type: string
+                transactionId:
+                  type: string
+      responses:
+        '200':
+          description: Payment confirmed and rental activated
+
+  /api/payments:
+    get:
+      summary: Get user payment history
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Payment transaction history
+
+  /api/payments/{id}:
+    get:
+      summary: Get payment details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Payment record details
+
+  /api/reviews:
+    get:
+      summary: Get property reviews
+      responses:
+        '200':
+          description: List of reviews
+    post:
+      summary: Submit property review (Tenant)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [propertyId, rentalRequestId, rating, comment]
+              properties:
+                propertyId:
+                  type: string
+                rentalRequestId:
+                  type: string
+                rating:
+                  type: integer
+                comment:
+                  type: string
+      responses:
+        '201':
+          description: Review created
+
+  /api/admin/users:
+    get:
+      summary: Get all users (Admin)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of all users
+
+  /api/admin/users/{id}:
+    patch:
+      summary: Update user status ban/unban (Admin)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [ACTIVE, BANNED]
+      responses:
+        '200':
+          description: User status updated
+
+  /api/admin/properties:
+    get:
+      summary: Oversee all listings (Admin)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of all property listings
+
+  /api/admin/rentals:
+    get:
+      summary: Oversee all rental requests (Admin)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of all rental requests

@@ -1,4 +1,4 @@
-import { UserStatus } from "../../generated/prisma/client.js";
+import { Role, UserStatus } from "../../generated/prisma/client.js";
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../common/errors/AppError.js";
 import { createToken } from "../../common/utils/jwt.js";
@@ -12,7 +12,7 @@ export async function registerUser(data: {
   email: string;
   password: string;
   phone?: string;
-  role: "TENANT" | "LANDLORD";
+  role: typeof Role.TENANT | typeof Role.LANDLORD;
 }) {
   const existingUser = await prisma.user.findUnique({
     where: {
