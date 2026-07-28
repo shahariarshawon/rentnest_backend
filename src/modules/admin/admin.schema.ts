@@ -6,14 +6,14 @@ export const updateUserStatusSchema = z.object({
     id: z.string().uuid("Invalid user ID format")
   }),
   body: z.object({
-    status: z.nativeEnum(UserStatus, { message: "Status must be ACTIVE or BANNED" })
+    status: z.enum([UserStatus.ACTIVE, UserStatus.BANNED], { message: "Status must be ACTIVE or BANNED" })
   })
 });
 
 export const queryAdminUsersSchema = z.object({
   query: z.object({
-    role: z.nativeEnum(Role).optional(),
-    status: z.nativeEnum(UserStatus).optional(),
+    role: z.enum([Role.TENANT, Role.LANDLORD, Role.ADMIN]).optional(),
+    status: z.enum([UserStatus.ACTIVE, UserStatus.BANNED]).optional(),
     search: z.string().optional(),
     page: z.coerce.number().int().positive().optional(),
     limit: z.coerce.number().int().positive().optional()

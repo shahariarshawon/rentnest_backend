@@ -35,7 +35,7 @@ export const updatePropertySchema = z.object({
     amenities: z.array(z.string()).optional(),
     images: z.array(z.string().url()).optional(),
     categoryId: z.string().uuid().optional(),
-    status: z.nativeEnum(PropertyStatus).optional()
+    status: z.enum([PropertyStatus.AVAILABLE, PropertyStatus.UNAVAILABLE]).optional()
   })
 });
 
@@ -44,7 +44,7 @@ export const updatePropertyStatusSchema = z.object({
     id: z.string().uuid("Invalid property ID format")
   }),
   body: z.object({
-    status: z.nativeEnum(PropertyStatus)
+    status: z.enum([PropertyStatus.AVAILABLE, PropertyStatus.UNAVAILABLE])
   })
 });
 
