@@ -1,44 +1,59 @@
 openapi: 3.0.3
 info:
   title: RentNest Rental Property Marketplace API
-  description: Backend REST API for RentNest marketplace enabling Landlords to list properties, Tenants to browse and request rentals with Stripe payment integration, and Admins to moderate the platform.
-  version: 1.0.0
+  version: 1.1.0
+  description: REST API for tenant, landlord, and admin workflows with JWT authentication, Prisma/PostgreSQL persistence,
+    and verified Stripe Checkout payments.
 servers:
-  - url: http://localhost:5000
-    description: Local Development Server
-
+- url: http://localhost:5000
+  description: Local development
+- url: https://your-rentnest-domain.vercel.app
+  description: Replace with the deployed Vercel URL
+tags:
+- name: Health
+- name: Authentication
+- name: Users
+- name: Categories
+- name: Properties
+- name: Rentals
+- name: Payments
+- name: Reviews
+- name: Admin
 components:
   securitySchemes:
     BearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-
   schemas:
     SuccessResponse:
       type: object
+      required:
+      - success
+      - message
+      - data
       properties:
         success:
           type: boolean
           example: true
         message:
           type: string
-          example: Operation completed successfully
         data:
           nullable: true
-
     ErrorResponse:
       type: object
+      required:
+      - success
+      - message
+      - errorDetails
       properties:
         success:
           type: boolean
           example: false
         message:
           type: string
-          example: An error occurred
         errorDetails:
           nullable: true
-
     User:
       type: object
       properties:
@@ -55,28 +70,19 @@ components:
           nullable: true
         avatarUrl:
           type: string
+          format: uri
           nullable: true
         role:
           type: string
-          enum: [TENANT, LANDLORD, ADMIN]
+          enum:
+          - TENANT
+          - LANDLORD
+          - ADMIN
         status:
           type: string
-          enum: [ACTIVE, BANNED]
-        createdAt:
-          type: string
-          format: date-time
-
-    Category:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        slug:
-          type: string
-
+          enum:
+          - ACTIVE
+          - BANNED
     Property:
       type: object
       properties:
@@ -100,9 +106,6 @@ components:
           type: integer
         bathrooms:
           type: integer
-        areaSqFt:
-          type: integer
-          nullable: true
         amenities:
           type: array
           items:
@@ -111,16 +114,12 @@ components:
           type: array
           items:
             type: string
+            format: uri
         status:
           type: string
-          enum: [AVAILABLE, UNAVAILABLE]
-        landlordId:
-          type: string
-          format: uuid
-        categoryId:
-          type: string
-          format: uuid
-
+          enum:
+          - AVAILABLE
+          - UNAVAILABLE
     RentalRequest:
       type: object
       properties:
@@ -132,24 +131,16 @@ components:
           format: date-time
         durationMonths:
           type: integer
-        message:
-          type: string
-          nullable: true
         totalAmount:
           type: number
         status:
           type: string
-          enum: [PENDING, APPROVED, REJECTED, ACTIVE, COMPLETED]
-        tenantId:
-          type: string
-          format: uuid
-        landlordId:
-          type: string
-          format: uuid
-        propertyId:
-          type: string
-          format: uuid
-
+          enum:
+          - PENDING
+          - APPROVED
+          - REJECTED
+          - ACTIVE
+          - COMPLETED
     Payment:
       type: object
       properties:
@@ -166,615 +157,2052 @@ components:
           type: number
         currency:
           type: string
+          example: usd
         provider:
           type: string
-          enum: [STRIPE]
+          enum:
+          - STRIPE
         status:
           type: string
-          enum: [PENDING, COMPLETED, FAILED]
+          enum:
+          - PENDING
+          - COMPLETED
+          - FAILED
         paidAt:
           type: string
           format: date-time
           nullable: true
-        rentalRequestId:
-          type: string
-          format: uuid
-
-    Review:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        rating:
-          type: integer
-          minimum: 1
-          maximum: 5
-        comment:
-          type: string
-        tenantId:
-          type: string
-          format: uuid
-        propertyId:
-          type: string
-          format: uuid
-        rentalRequestId:
-          type: string
-          format: uuid
-
 paths:
   /api/health:
     get:
-      summary: Health check
+      tags:
+      - Health
+      summary: Check API health
       responses:
         '200':
-          description: API running status
+          description: API is running
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
-
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/auth/register:
     post:
-      summary: Register a new user
+      tags:
+      - Authentication
+      summary: Register as tenant or landlord
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [name, email, password, role]
               properties:
-                name:
+                name: &id001
                   type: string
-                email:
+                email: &id002
                   type: string
-                password:
+                  format: email
+                password: &id003
                   type: string
-                phone:
-                  type: string
+                  format: password
+                  minLength: 8
+                phone: *id001
                 role:
                   type: string
-                  enum: [TENANT, LANDLORD]
+                  enum:
+                  - TENANT
+                  - LANDLORD
+              required:
+              - name
+              - email
+              - password
+              - role
       responses:
         '201':
-          description: User registered successfully
+          description: Registration completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
         '400':
-          description: Validation error
-
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Resource conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/auth/login:
     post:
-      summary: Login user and get JWT
+      tags:
+      - Authentication
+      summary: Login and receive JWT
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [email, password]
               properties:
-                email:
-                  type: string
+                email: *id002
                 password:
                   type: string
+                  format: password
+              required:
+              - email
+              - password
       responses:
         '200':
           description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Invalid credentials
-
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/auth/me:
     get:
-      summary: Get current authenticated user
-      security:
-        - BearerAuth: []
+      tags:
+      - Authentication
+      summary: Get authenticated user
       responses:
         '200':
-          description: Current user profile
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
         '401':
-          description: Unauthorized
-
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
   /api/users/profile:
     get:
-      summary: Get user profile
-      security:
-        - BearerAuth: []
+      tags:
+      - Users
+      summary: Get own profile
       responses:
         '200':
-          description: User profile data
-    patch:
-      summary: Update profile details
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       security:
-        - BearerAuth: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                phone:
-                  type: string
-                avatarUrl:
-                  type: string
-      responses:
-        '200':
-          description: Profile updated
-
-  /api/users/change-password:
+      - BearerAuth: []
     patch:
-      summary: Change password
-      security:
-        - BearerAuth: []
+      tags:
+      - Users
+      summary: Update own profile
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [currentPassword, newPassword]
+              properties:
+                name: *id001
+                phone: *id001
+                avatarUrl:
+                  type: string
+                  format: uri
+                  nullable: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
+  /api/users/change-password:
+    patch:
+      tags:
+      - Users
+      summary: Change own password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
               properties:
                 currentPassword:
                   type: string
-                newPassword:
-                  type: string
+                  format: password
+                newPassword: *id003
+              required:
+              - currentPassword
+              - newPassword
       responses:
         '200':
-          description: Password updated
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
   /api/categories:
     get:
-      summary: Get all property categories
+      tags:
+      - Categories
+      summary: List property categories
       responses:
         '200':
-          description: List of categories
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
+      tags:
+      - Categories
+      - Admin
       summary: Create category (Admin)
-      security:
-        - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [name]
               properties:
-                name:
-                  type: string
+                name: *id001
+              required:
+              - name
       responses:
         '201':
-          description: Category created
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Resource conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
   /api/categories/{id}:
     get:
-      summary: Get category by ID
+      tags:
+      - Categories
+      summary: Get category
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: id
+        in: path
+        required: true
+        description: Resource ID
+        schema:
+          type: string
+          format: uuid
       responses:
         '200':
-          description: Category details
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
+      tags:
+      - Categories
+      - Admin
       summary: Update category (Admin)
-      security:
-        - BearerAuth: []
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: id
+        in: path
+        required: true
+        description: Resource ID
+        schema:
+          type: string
+          format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [name]
               properties:
-                name:
-                  type: string
+                name: *id001
+              required:
+              - name
       responses:
         '200':
-          description: Category updated
-    delete:
-      summary: Delete category (Admin)
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Resource conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       security:
-        - BearerAuth: []
+      - BearerAuth: []
+    delete:
+      tags:
+      - Categories
+      - Admin
+      summary: Delete unused category (Admin)
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: id
+        in: path
+        required: true
+        description: Resource ID
+        schema:
+          type: string
+          format: uuid
       responses:
         '200':
-          description: Category deleted
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
   /api/properties:
     get:
-      summary: Get public rental properties with filters
+      tags:
+      - Properties
+      summary: Browse available properties
       parameters:
-        - name: search
-          in: query
-          schema:
-            type: string
-        - name: city
-          in: query
-          schema:
-            type: string
-        - name: categoryId
-          in: query
-          schema:
-            type: string
-        - name: minPrice
-          in: query
-          schema:
-            type: number
-        - name: maxPrice
-          in: query
-          schema:
-            type: number
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: limit
-          in: query
-          schema:
-            type: integer
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: location
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: city
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: categoryId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: minPrice
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: 0
+      - name: maxPrice
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: 0
+      - name: bedrooms
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+      - name: amenities
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Comma-separated amenities, for example wifi,parking
+      - name: sortBy
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - price
+          - createdAt
+      - name: sortOrder
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - asc
+          - desc
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
       responses:
         '200':
-          description: Paginated properties list
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/properties/{id}:
     get:
-      summary: Get property details by ID
+      tags:
+      - Properties
+      summary: Get property details
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: id
+        in: path
+        required: true
+        description: Resource ID
+        schema:
+          type: string
+          format: uuid
       responses:
         '200':
-          description: Detailed property listing
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/landlord/properties:
     get:
-      summary: Get landlord listings
-      security:
-        - BearerAuth: []
+      tags:
+      - Properties
+      summary: List own landlord properties
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - AVAILABLE
+          - UNAVAILABLE
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
       responses:
         '200':
-          description: Landlord property list
-    post:
-      summary: Create property listing (Landlord)
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       security:
-        - BearerAuth: []
+      - BearerAuth: []
+    post:
+      tags:
+      - Properties
+      summary: Create property listing
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [title, description, address, city, price, bedrooms, bathrooms, categoryId]
-              properties:
-                title:
-                  type: string
-                description:
-                  type: string
-                address:
-                  type: string
-                city:
-                  type: string
+              properties: &id004
+                title: *id001
+                description: *id001
+                address: *id001
+                city: *id001
+                area: *id001
                 price:
                   type: number
+                  minimum: 0.01
                 bedrooms:
                   type: integer
+                  minimum: 0
                 bathrooms:
                   type: integer
-                categoryId:
-                  type: string
+                  minimum: 0
+                areaSqFt:
+                  type: integer
+                  minimum: 1
                 amenities:
                   type: array
-                  items:
-                    type: string
+                  items: *id001
                 images:
                   type: array
                   items:
                     type: string
+                    format: uri
+                categoryId: &id005
+                  type: string
+                  format: uuid
+              required:
+              - title
+              - description
+              - address
+              - city
+              - price
+              - bedrooms
+              - bathrooms
+              - categoryId
       responses:
         '201':
-          description: Property listing created
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
   /api/landlord/properties/{id}:
     put:
-      summary: Update property listing (Landlord)
-      security:
-        - BearerAuth: []
+      tags:
+      - Properties
+      summary: Update own property
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: id
+        in: path
+        required: true
+        description: Resource ID
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: *id004
       responses:
         '200':
-          description: Property updated
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
     delete:
-      summary: Delete property listing (Landlord)
-      security:
-        - BearerAuth: []
+      tags:
+      - Properties
+      summary: Soft-delete own property
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: id
+        in: path
+        required: true
+        description: Resource ID
+        schema:
+          type: string
+          format: uuid
       responses:
         '200':
-          description: Property removed
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
   /api/landlord/properties/{id}/status:
     patch:
-      summary: Set property status (AVAILABLE/UNAVAILABLE)
-      security:
-        - BearerAuth: []
+      tags:
+      - Properties
+      summary: Change property availability
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: id
+        in: path
+        required: true
+        description: Resource ID
+        schema:
+          type: string
+          format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [status]
               properties:
                 status:
                   type: string
-                  enum: [AVAILABLE, UNAVAILABLE]
+                  enum:
+                  - AVAILABLE
+                  - UNAVAILABLE
+              required:
+              - status
       responses:
         '200':
-          description: Property status updated
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
   /api/landlord/requests:
     get:
-      summary: Get rental requests for landlord properties
-      security:
-        - BearerAuth: []
+      tags:
+      - Rentals
+      summary: List requests for own properties
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - PENDING
+          - APPROVED
+          - REJECTED
+          - ACTIVE
+          - COMPLETED
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
       responses:
         '200':
-          description: List of rental requests
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
   /api/landlord/requests/{id}:
     patch:
-      summary: Approve or Reject a rental request
-      security:
-        - BearerAuth: []
+      tags:
+      - Rentals
+      summary: Approve or reject a pending request
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: id
+        in: path
+        required: true
+        description: Resource ID
+        schema:
+          type: string
+          format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [status]
               properties:
                 status:
                   type: string
-                  enum: [APPROVED, REJECTED]
+                  enum:
+                  - APPROVED
+                  - REJECTED
+              required:
+              - status
       responses:
         '200':
-          description: Rental request status updated
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Resource conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
+  /api/landlord/requests/{id}/complete:
+    patch:
+      tags:
+      - Rentals
+      summary: Mark an active paid rental completed
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Resource ID
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
   /api/rentals:
     get:
-      summary: Get tenant rental requests
-      security:
-        - BearerAuth: []
+      tags:
+      - Rentals
+      summary: List own tenant rental requests
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - PENDING
+          - APPROVED
+          - REJECTED
+          - ACTIVE
+          - COMPLETED
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
       responses:
         '200':
-          description: Tenant rental request history
-    post:
-      summary: Submit rental request (Tenant)
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       security:
-        - BearerAuth: []
+      - BearerAuth: []
+    post:
+      tags:
+      - Rentals
+      summary: Submit rental request
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [propertyId, moveInDate, durationMonths]
               properties:
-                propertyId:
-                  type: string
+                propertyId: *id005
                 moveInDate:
                   type: string
                   format: date-time
                 durationMonths:
                   type: integer
-                message:
-                  type: string
+                  minimum: 1
+                  maximum: 120
+                message: *id001
+              required:
+              - propertyId
+              - moveInDate
+              - durationMonths
       responses:
         '201':
-          description: Rental request submitted
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
   /api/rentals/{id}:
     get:
+      tags:
+      - Rentals
       summary: Get rental request details
-      security:
-        - BearerAuth: []
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: id
+        in: path
+        required: true
+        description: Resource ID
+        schema:
+          type: string
+          format: uuid
       responses:
         '200':
-          description: Rental request details
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
+  /api/payments/webhook:
+    post:
+      tags:
+      - Payments
+      summary: Receive signed Stripe webhook
+      description: Configure this exact URL in Stripe and use the resulting signing secret as STRIPE_WEBHOOK_SECRET.
+      parameters:
+      - name: Stripe-Signature
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Webhook accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Required service is not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/payments/success:
+    get:
+      tags:
+      - Payments
+      summary: Stripe Checkout return URL
+      parameters:
+      - name: session_id
+        in: query
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/payments/create:
     post:
-      summary: Create Stripe checkout session for approved rental request
-      security:
-        - BearerAuth: []
+      tags:
+      - Payments
+      summary: Create real Stripe Checkout session
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [rentalRequestId]
               properties:
-                rentalRequestId:
-                  type: string
+                rentalRequestId: *id005
+              required:
+              - rentalRequestId
       responses:
         '201':
-          description: Payment checkout session created
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Stripe service error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Required service is not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
   /api/payments/confirm:
     post:
-      summary: Confirm payment and activate rental
-      security:
-        - BearerAuth: []
+      tags:
+      - Payments
+      summary: Verify a paid Checkout session with Stripe
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [rentalRequestId]
               properties:
-                rentalRequestId:
-                  type: string
+                rentalRequestId: *id005
                 stripeSessionId:
                   type: string
-                transactionId:
-                  type: string
+              required:
+              - rentalRequestId
+              - stripeSessionId
       responses:
         '200':
-          description: Payment confirmed and rental activated
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Stripe service error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Required service is not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
   /api/payments:
     get:
-      summary: Get user payment history
-      security:
-        - BearerAuth: []
+      tags:
+      - Payments
+      summary: List accessible payment history
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
       responses:
         '200':
-          description: Payment transaction history
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
   /api/payments/{id}:
     get:
-      summary: Get payment details
-      security:
-        - BearerAuth: []
+      tags:
+      - Payments
+      summary: Get accessible payment details
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: id
+        in: path
+        required: true
+        description: Resource ID
+        schema:
+          type: string
+          format: uuid
       responses:
         '200':
-          description: Payment record details
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
   /api/reviews:
     get:
-      summary: Get property reviews
+      tags:
+      - Reviews
+      summary: List property reviews
+      parameters:
+      - name: propertyId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
       responses:
         '200':
-          description: List of reviews
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
-      summary: Submit property review (Tenant)
-      security:
-        - BearerAuth: []
+      tags:
+      - Reviews
+      summary: Review a completed rental
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [propertyId, rentalRequestId, rating, comment]
               properties:
-                propertyId:
-                  type: string
-                rentalRequestId:
-                  type: string
+                propertyId: *id005
+                rentalRequestId: *id005
                 rating:
                   type: integer
+                  minimum: 1
+                  maximum: 5
                 comment:
                   type: string
+                  minLength: 3
+                  maxLength: 2000
+              required:
+              - propertyId
+              - rentalRequestId
+              - rating
+              - comment
       responses:
         '201':
-          description: Review created
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
   /api/admin/users:
     get:
-      summary: Get all users (Admin)
-      security:
-        - BearerAuth: []
+      tags:
+      - Admin
+      summary: List users
+      parameters:
+      - name: role
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - TENANT
+          - LANDLORD
+          - ADMIN
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - ACTIVE
+          - BANNED
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
       responses:
         '200':
-          description: List of all users
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
   /api/admin/users/{id}:
     patch:
-      summary: Update user status ban/unban (Admin)
-      security:
-        - BearerAuth: []
+      tags:
+      - Admin
+      summary: Ban or unban user
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: id
+        in: path
+        required: true
+        description: Resource ID
+        schema:
+          type: string
+          format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [status]
               properties:
                 status:
                   type: string
-                  enum: [ACTIVE, BANNED]
+                  enum:
+                  - ACTIVE
+                  - BANNED
+              required:
+              - status
       responses:
         '200':
-          description: User status updated
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
   /api/admin/properties:
     get:
-      summary: Oversee all listings (Admin)
-      security:
-        - BearerAuth: []
+      tags:
+      - Admin
+      summary: List all properties
+      parameters:
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: isDeleted
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - 'true'
+          - 'false'
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
       responses:
         '200':
-          description: List of all property listings
-
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
   /api/admin/rentals:
     get:
-      summary: Oversee all rental requests (Admin)
-      security:
-        - BearerAuth: []
+      tags:
+      - Admin
+      summary: List all rental requests
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - PENDING
+          - APPROVED
+          - REJECTED
+          - ACTIVE
+          - COMPLETED
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
       responses:
         '200':
-          description: List of all rental requests
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Validation or business-rule error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - BearerAuth: []
