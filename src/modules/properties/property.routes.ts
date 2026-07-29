@@ -16,6 +16,7 @@ import {
 import {
   createPropertySchema,
   getPropertyByIdSchema,
+  queryLandlordPropertiesSchema,
   queryPropertySchema,
   updatePropertySchema,
   updatePropertyStatusSchema
@@ -33,7 +34,11 @@ export const landlordPropertyRouter = Router();
 landlordPropertyRouter.use(authenticate, authorize(Role.LANDLORD));
 
 landlordPropertyRouter.post("/", validate(createPropertySchema), asyncHandler(handleCreateProperty));
-landlordPropertyRouter.get("/", asyncHandler(handleGetLandlordProperties));
+landlordPropertyRouter.get(
+  "/",
+  validate(queryLandlordPropertiesSchema),
+  asyncHandler(handleGetLandlordProperties)
+);
 landlordPropertyRouter.put("/:id", validate(updatePropertySchema), asyncHandler(handleUpdateProperty));
 landlordPropertyRouter.delete("/:id", validate(getPropertyByIdSchema), asyncHandler(handleDeleteProperty));
 landlordPropertyRouter.patch(

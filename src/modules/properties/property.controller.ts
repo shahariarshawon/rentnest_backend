@@ -11,7 +11,7 @@ import {
 } from "./property.service.js";
 
 export async function handleGetAllProperties(req: Request, res: Response) {
-  const result = await getAllPublicProperties(req);
+  const result = await getAllPublicProperties(req, res.locals.validated.query);
   return sendSuccess(res, 200, "Properties retrieved successfully", result);
 }
 
@@ -53,6 +53,10 @@ export async function handleUpdatePropertyStatus(req: Request, res: Response) {
 
 export async function handleGetLandlordProperties(req: Request, res: Response) {
   const landlordId = res.locals.user.id;
-  const result = await getLandlordProperties(landlordId, req);
+  const result = await getLandlordProperties(
+    landlordId,
+    req,
+    res.locals.validated.query
+  );
   return sendSuccess(res, 200, "Landlord properties retrieved successfully", result);
 }

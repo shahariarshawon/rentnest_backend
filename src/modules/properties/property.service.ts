@@ -9,27 +9,34 @@ import type { Request } from "express";
 
 export interface PropertyFilterQuery {
   search?: string;
+  location?: string;
   city?: string;
   categoryId?: string;
   minPrice?: number;
   maxPrice?: number;
   bedrooms?: number;
+  amenities?: string[];
   sortBy?: "price" | "createdAt";
   sortOrder?: "asc" | "desc";
 }
 
-export async function getAllPublicProperties(req: Request) {
+export async function getAllPublicProperties(
+  req: Request,
+  query: PropertyFilterQuery
+) {
   const pagination = getPaginationParams(req);
   const {
     search,
+    location,
     city,
     categoryId,
     minPrice,
     maxPrice,
     bedrooms,
+    amenities,
     sortBy = "createdAt",
     sortOrder = "desc"
-  } = req.query as unknown as PropertyFilterQuery;
+  } = query;
 
   const where: Prisma.PropertyWhereInput = {
     isDeleted: false,
@@ -42,6 +49,19 @@ export async function getAllPublicProperties(req: Request) {
       { description: { contains: search, mode: "insensitive" } },
       { city: { contains: search, mode: "insensitive" } },
       { address: { contains: search, mode: "insensitive" } }
+    ];
+  }
+
+  if (location) {
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : []),
+      {
+        OR: [
+          { city: { contains: location, mode: "insensitive" } },
+          { area: { contains: location, mode: "insensitive" } },
+          { address: { contains: location, mode: "insensitive" } }
+        ]
+      }
     ];
   }
 
@@ -61,6 +81,10 @@ export async function getAllPublicProperties(req: Request) {
     where.price = {};
     if (minPrice !== undefined) where.price.gte = minPrice;
     if (maxPrice !== undefined) where.price.lte = maxPrice;
+  }
+
+  if (amenities?.length) {
+    where.amenities = { hasEvery: amenities };
   }
 
   const [properties, total] = await Promise.all([
@@ -264,12 +288,17 @@ export async function updatePropertyStatus(
   return updatedProperty;
 }
 
-export async function getLandlordProperties(landlordId: string, req: Request) {
+export async function getLandlordProperties(
+  landlordId: string,
+  req: Request,
+  query: { status?: PropertyStatus }
+) {
   const pagination = getPaginationParams(req);
 
   const where: Prisma.PropertyWhereInput = {
     landlordId,
-    isDeleted: false
+    isDeleted: false,
+    ...(query.status ? { status: query.status } : {})
   };
 
   const [properties, total] = await Promise.all([
