@@ -7,13 +7,14 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "prisma generate && tsc && mkdir -p dist/doc && cp src/doc/openapi.yaml dist/doc/",
-    "vercel-build": "prisma generate",
+    "vercel-build": "prisma generate && prisma migrate deploy",
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "prisma db seed",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "postinstall": "prisma generate"
   },
   "keywords": [
     "express",
@@ -48,5 +49,9 @@
     "prisma": "^7.9.0",
     "tsx": "^4.23.1",
     "typescript": "^5.7.3"
+  },
+  "packageManager": "pnpm@10.17.1",
+  "engines": {
+    "node": "22.x"
   }
 }
