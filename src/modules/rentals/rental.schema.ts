@@ -4,9 +4,19 @@ import { RentalStatus } from "../../generated/prisma/client.js";
 export const createRentalRequestSchema = z.object({
   body: z.object({
     propertyId: z.string().uuid("Invalid property ID format"),
-    moveInDate: z.string().datetime({ message: "Invalid move-in date format. Must be ISO datetime string" }),
-    durationMonths: z.coerce.number().int().min(1, "Duration must be at least 1 month"),
-    message: z.string().optional()
+    moveInDate: z
+      .string()
+      .datetime({ message: "Invalid move-in date format. Must be an ISO datetime string" })
+      .refine(
+        (value) => new Date(value).getTime() > Date.now(),
+        "Move-in date must be in the future"
+      ),
+    durationMonths: z.coerce
+      .number()
+      .int()
+      .min(1, "Duration must be at least 1 month")
+      .max(120, "Duration cannot exceed 120 months"),
+    message: z.string().trim().max(1000).optional()
   })
 });
 
@@ -31,6 +41,6 @@ export const queryRentalSchema = z.object({
   query: z.object({
     status: z.nativeEnum(RentalStatus).optional(),
     page: z.coerce.number().int().positive().optional(),
-    limit: z.coerce.number().int().positive().optional()
+    limit: z.coerce.number().int().positive().max(100).optional()
   })
 });

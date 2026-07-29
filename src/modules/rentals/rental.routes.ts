@@ -5,6 +5,7 @@ import { authorize } from "../../common/middlewares/authorize.js";
 import { validate } from "../../common/middlewares/validate.js";
 import { asyncHandler } from "../../common/utils/asyncHandler.js";
 import {
+  handleCompleteRental,
   handleCreateRentalRequest,
   handleGetLandlordRentals,
   handleGetRentalById,
@@ -52,6 +53,12 @@ landlordRentalRouter.get(
   "/",
   validate(queryRentalSchema),
   asyncHandler(handleGetLandlordRentals)
+);
+
+landlordRentalRouter.patch(
+  "/:id/complete",
+  validate(getRentalByIdSchema),
+  asyncHandler(handleCompleteRental)
 );
 
 landlordRentalRouter.patch(

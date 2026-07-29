@@ -29,8 +29,8 @@ export async function createReview(
     throw new AppError("Rental request does not match the specified property", 400);
   }
 
-  if (rental.status !== RentalStatus.ACTIVE && rental.status !== RentalStatus.COMPLETED) {
-    throw new AppError("You can only review properties after your rental request is ACTIVE or COMPLETED", 400);
+  if (rental.status !== RentalStatus.COMPLETED) {
+    throw new AppError("You can only review a property after the rental is COMPLETED", 400);
   }
 
   const existingReview = await prisma.review.findUnique({
