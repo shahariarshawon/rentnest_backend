@@ -96,7 +96,7 @@ The API does **not** use simulated payment sessions. A payment becomes completed
 3. Keep the project root at the folder containing `package.json`.
 4. Add all environment variables.
 5. Select Node.js 22.x.
-6. Deploy.
+6. Deploy. The Vercel build applies migrations and runs the idempotent admin/category seed.
 7. Confirm `<BASE_URL>/api/health` and `<BASE_URL>/api/docs`.
 8. Configure the Stripe webhook and redeploy if needed.
 
@@ -105,7 +105,7 @@ The project includes:
 - a corrected single-document `pnpm-lock.yaml`
 - a pinned pnpm version
 - Prisma generation during installation
-- Prisma migration deployment during the Vercel build
+- Prisma migration deployment and idempotent admin/category seeding during the Vercel build
 - a Vercel serverless Express entry point
 - Swagger YAML explicitly included in the function bundle
 

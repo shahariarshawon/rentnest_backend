@@ -28,7 +28,7 @@ app.use(cors());
 // Stripe requires the original raw body for webhook signature verification.
 app.use("/api/payments/webhook", stripeWebhookRouter);
 
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 
 // Setup Swagger API Documentation
 setupSwagger(app);

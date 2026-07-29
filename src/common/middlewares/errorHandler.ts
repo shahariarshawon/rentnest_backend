@@ -16,7 +16,20 @@ export const errorHandler: ErrorRequestHandler = (
       message: error.message,
       errorDetails: error.errorDetails
     });
+    return;
+  }
 
+  if (
+    error instanceof SyntaxError &&
+    typeof error === "object" &&
+    error !== null &&
+    "body" in error
+  ) {
+    res.status(400).json({
+      success: false,
+      message: "Request body contains invalid JSON",
+      errorDetails: null
+    });
     return;
   }
 
@@ -26,7 +39,6 @@ export const errorHandler: ErrorRequestHandler = (
       message: "Authentication token has expired",
       errorDetails: null
     });
-
     return;
   }
 
@@ -36,21 +48,34 @@ export const errorHandler: ErrorRequestHandler = (
       message: "Invalid authentication token",
       errorDetails: null
     });
-
     return;
   }
 
-  if (
-    error instanceof
-    Prisma.PrismaClientKnownRequestError
-  ) {
+  if (error instanceof Prisma.PrismaClientValidationError) {
+    res.status(400).json({
+      success: false,
+      message: "Database query validation failed",
+      errorDetails: env.NODE_ENV === "development" ? error.message : null
+    });
+    return;
+  }
+
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === "P2002") {
       res.status(409).json({
         success: false,
         message: "A record with this value already exists",
         errorDetails: error.meta
       });
+      return;
+    }
 
+    if (error.code === "P2003") {
+      res.status(400).json({
+        success: false,
+        message: "The request references an invalid related record",
+        errorDetails: error.meta
+      });
       return;
     }
 
@@ -60,7 +85,6 @@ export const errorHandler: ErrorRequestHandler = (
         message: "Requested record was not found",
         errorDetails: null
       });
-
       return;
     }
   }
@@ -72,7 +96,9 @@ export const errorHandler: ErrorRequestHandler = (
     message: "Internal server error",
     errorDetails:
       env.NODE_ENV === "development"
-        ? error.message
+        ? error instanceof Error
+          ? error.message
+          : String(error)
         : null
   });
 };
