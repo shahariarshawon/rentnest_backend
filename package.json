@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "prisma generate && tsc && mkdir -p dist/doc && cp src/doc/openapi.yaml dist/doc/",
+    "build": "prisma generate && tsc && node scripts/copy-openapi.mjs",
     "vercel-build": "prisma generate && prisma migrate deploy",
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
@@ -14,7 +14,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "prisma db seed",
     "prisma:studio": "prisma studio",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "preflight": "node scripts/preflight.mjs"
   },
   "keywords": [
     "express",
