@@ -65,3 +65,5 @@ app.use(notFound);
 
 // Error handler middleware
 app.use(errorHandler);
+
+export default app;
