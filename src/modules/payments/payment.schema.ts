@@ -9,8 +9,13 @@ export const createPaymentSessionSchema = z.object({
 export const confirmPaymentSchema = z.object({
   body: z.object({
     rentalRequestId: z.string().uuid("Invalid rental request ID format"),
-    stripeSessionId: z.string().optional(),
-    transactionId: z.string().optional()
+    stripeSessionId: z.string().min(1, "Stripe session ID is required")
+  })
+});
+
+export const paymentSuccessSchema = z.object({
+  query: z.object({
+    session_id: z.string().min(1, "Stripe session ID is required")
   })
 });
 
@@ -23,6 +28,6 @@ export const getPaymentByIdSchema = z.object({
 export const queryPaymentSchema = z.object({
   query: z.object({
     page: z.coerce.number().int().positive().optional(),
-    limit: z.coerce.number().int().positive().optional()
+    limit: z.coerce.number().int().positive().max(100).optional()
   })
 });

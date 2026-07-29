@@ -1,11 +1,39 @@
 import type { Request, Response } from "express";
+import { AppError } from "../../common/errors/AppError.js";
 import { sendSuccess } from "../../common/utils/response.js";
 import {
   confirmPayment,
   createPaymentSession,
   getPaymentById,
-  getUserPayments
+  getUserPayments,
+  processStripeWebhook
 } from "./payment.service.js";
+
+export async function handleStripeWebhook(req: Request, res: Response) {
+  const signatureHeader = req.headers["stripe-signature"];
+
+  if (!signatureHeader || Array.isArray(signatureHeader)) {
+    throw new AppError("Stripe-Signature header is required", 400);
+  }
+
+  if (!Buffer.isBuffer(req.body)) {
+    throw new AppError("Stripe webhook requires an unparsed request body", 400);
+  }
+
+  const result = await processStripeWebhook(req.body, signatureHeader);
+  return sendSuccess(res, 200, "Stripe webhook received", result);
+}
+
+export async function handlePaymentSuccess(req: Request, res: Response) {
+  const sessionId = String(req.query.session_id ?? "");
+
+  return sendSuccess(
+    res,
+    200,
+    "Stripe returned successfully. The webhook or authenticated confirmation endpoint will update payment status.",
+    { stripeSessionId: sessionId }
+  );
+}
 
 export async function handleCreatePaymentSession(_req: Request, res: Response) {
   const tenantId = res.locals.user.id;

@@ -7,7 +7,9 @@ import { setupSwagger } from "./config/swagger.js";
 import adminRoutes from "./modules/admin/admin.routes.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import categoryRoutes from "./modules/categories/category.routes.js";
-import paymentRoutes from "./modules/payments/payment.routes.js";
+import paymentRoutes, {
+  stripeWebhookRouter
+} from "./modules/payments/payment.routes.js";
 import {
   landlordPropertyRouter,
   publicPropertyRouter
@@ -22,6 +24,10 @@ import userRoutes from "./modules/users/user.routes.js";
 export const app = express();
 
 app.use(cors());
+
+// Stripe requires the original raw body for webhook signature verification.
+app.use("/api/payments/webhook", stripeWebhookRouter);
+
 app.use(express.json());
 
 // Setup Swagger API Documentation

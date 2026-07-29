@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import { Role } from "../../generated/prisma/client.js";
 import { authenticate } from "../../common/middlewares/authenticate.js";
 import { authorize } from "../../common/middlewares/authorize.js";
@@ -8,16 +8,33 @@ import {
   handleConfirmPayment,
   handleCreatePaymentSession,
   handleGetPaymentById,
-  handleGetUserPayments
+  handleGetUserPayments,
+  handlePaymentSuccess,
+  handleStripeWebhook
 } from "./payment.controller.js";
 import {
   confirmPaymentSchema,
   createPaymentSessionSchema,
   getPaymentByIdSchema,
+  paymentSuccessSchema,
   queryPaymentSchema
 } from "./payment.schema.js";
 
+export const stripeWebhookRouter = Router();
+
+stripeWebhookRouter.post(
+  "/",
+  express.raw({ type: "application/json" }),
+  asyncHandler(handleStripeWebhook)
+);
+
 const router = Router();
+
+router.get(
+  "/success",
+  validate(paymentSuccessSchema),
+  asyncHandler(handlePaymentSuccess)
+);
 
 router.use(authenticate);
 
