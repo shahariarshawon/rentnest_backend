@@ -1,4 +1,9 @@
-import { Prisma, Role, UserStatus } from "../../generated/prisma/client.js";
+import {
+  Prisma,
+  RentalStatus,
+  Role,
+  UserStatus
+} from "../../generated/prisma/client.js";
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../common/errors/AppError.js";
 import { formatPaginatedResponse, getPaginationParams } from "../../common/utils/pagination.js";
@@ -132,9 +137,12 @@ export async function getAllAdminProperties(req: Request) {
 
 export async function getAllAdminRentals(req: Request) {
   const pagination = getPaginationParams(req);
+  const { status } = req.query as { status?: RentalStatus };
+  const where: Prisma.RentalRequestWhereInput = status ? { status } : {};
 
   const [rentals, total] = await Promise.all([
     prisma.rentalRequest.findMany({
+      where,
       skip: pagination.skip,
       take: pagination.limit,
       orderBy: { createdAt: "desc" },
@@ -153,7 +161,7 @@ export async function getAllAdminRentals(req: Request) {
         }
       }
     }),
-    prisma.rentalRequest.count()
+    prisma.rentalRequest.count({ where })
   ]);
 
   return formatPaginatedResponse(rentals, total, pagination);

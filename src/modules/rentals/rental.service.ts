@@ -1,4 +1,10 @@
-import { Prisma, PropertyStatus, RentalStatus, Role } from "../../generated/prisma/client.js";
+import {
+  PaymentStatus,
+  Prisma,
+  PropertyStatus,
+  RentalStatus,
+  Role
+} from "../../generated/prisma/client.js";
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../common/errors/AppError.js";
 import {
@@ -250,7 +256,7 @@ export async function completeRental(landlordId: string, id: string) {
       throw new AppError("Only an ACTIVE rental can be marked COMPLETED", 400);
     }
 
-    if (!rental.payment || rental.payment.status !== "COMPLETED") {
+    if (!rental.payment || rental.payment.status !== PaymentStatus.COMPLETED) {
       throw new AppError("A completed payment is required before finishing a rental", 400);
     }
 
