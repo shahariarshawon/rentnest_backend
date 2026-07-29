@@ -21,7 +21,7 @@ After deployment, replace `<BASE_URL>` with the Vercel URL:
 
 - Node.js 22.x
 - pnpm 10.17.1
-- PostgreSQL database, preferably a pooled serverless URL such as Neon or Prisma Postgres
+- PostgreSQL database, preferably with both a pooled runtime URL and a direct migration URL
 - Stripe test or live account
 
 ## Environment Variables
@@ -31,7 +31,8 @@ Copy `.env.example` to `.env` for local development. Never commit or upload `.en
 ```env
 NODE_ENV=development
 PORT=5000
-DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require
+DATABASE_URL=postgresql://USER:PASSWORD@POOLER_HOST:5432/DATABASE?sslmode=require
+DIRECT_URL=postgresql://USER:PASSWORD@DIRECT_HOST:5432/DATABASE?sslmode=require
 JWT_SECRET=replace-with-at-least-32-random-characters
 JWT_EXPIRES_IN=7d
 APP_URL=http://localhost:5000
@@ -42,7 +43,7 @@ ADMIN_PASSWORD=replace-with-a-strong-password
 ADMIN_NAME=RentNest Admin
 ```
 
-For Vercel, add every variable in **Project Settings → Environment Variables** for Production and Preview. Set `APP_URL` to the deployed HTTPS URL, not localhost.
+For Vercel, add every variable in **Project Settings → Environment Variables** for Production and Preview. Use the provider's pooled connection string for `DATABASE_URL`, its direct/non-pooler connection string for `DIRECT_URL`, and set `APP_URL` to the deployed HTTPS URL rather than localhost. Prisma CLI migration commands read `DIRECT_URL`; the running API and seed script use `DATABASE_URL`.
 
 ## Local Setup
 
@@ -94,7 +95,7 @@ The API does **not** use simulated payment sessions. A payment becomes completed
 1. Push this project to GitHub.
 2. Import the repository into Vercel.
 3. Keep the project root at the folder containing `package.json`.
-4. Add all environment variables.
+4. Add all environment variables, including pooled `DATABASE_URL` and direct `DIRECT_URL`.
 5. Select Node.js 22.x.
 6. Deploy. The Vercel build applies migrations and runs the idempotent admin/category seed.
 7. Confirm `<BASE_URL>/api/health` and `<BASE_URL>/api/docs`.
@@ -105,6 +106,7 @@ The project includes:
 - a corrected single-document `pnpm-lock.yaml`
 - a pinned pnpm version
 - Prisma generation during installation
+- direct database access for Prisma migrations, plus pooled runtime access
 - Prisma migration deployment and idempotent admin/category seeding during the Vercel build
 - a Vercel serverless Express entry point
 - Swagger YAML explicitly included in the function bundle
