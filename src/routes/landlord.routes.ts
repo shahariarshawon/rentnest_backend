@@ -6,10 +6,10 @@ import {
   deleteProperty,
   updatePropertyStatus,
 } from "../controllers/property.controller.js";
-
 import {
   getLandlordRentalRequests,
   updateRentalRequestStatus,
+  completeRentalRequest,
 } from "../controllers/rental.controller.js";
 
 import { authenticate, authorize } from "../middlewares/auth.milddleware.js";
@@ -87,5 +87,10 @@ router.patch(
   validateBody(landlordDecisionSchema),
   updateRentalRequestStatus,
 );
-
+// Complete an active rental
+router.patch(
+  "/requests/:id/complete",
+  validateParams(rentalIdSchema),
+  completeRentalRequest,
+);
 export default router;
