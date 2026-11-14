@@ -46,12 +46,17 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, next) => {
     if (prismaError.code === "P2002") {
       statusCode = 409;
       message = "A record with this information already exists";
+
       errorDetails = {
         target: prismaError.meta?.target ?? null,
       };
     } else if (prismaError.code === "P2025") {
       statusCode = 404;
       message = "Requested record was not found";
+    } else if (prismaError.code === "P2034") {
+      statusCode = 409;
+      message =
+        "A concurrent database update occurred. Please refresh and try again.";
     }
   }
 

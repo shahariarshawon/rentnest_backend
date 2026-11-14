@@ -8,6 +8,7 @@ import authRoutes from "./routes/auth.routes.js";
 import propertyRoutes from "./routes/property.routes.js";
 import categoryRoutes from "./routes/category.routes.js";
 import landlordRoutes from "./routes/landlord.routes.js";
+import rentalRoutes from "./routes/rental.routes.js";
 
 import {
   notFoundHandler,
@@ -28,7 +29,11 @@ app.use(express.json());
 // Request logger
 app.use(morgan("dev"));
 
-// Root route
+
+// ===========================
+// ROOT ROUTE
+// ===========================
+
 app.get("/", (_req, res) => {
   res.status(200).json({
     success: true,
@@ -37,7 +42,11 @@ app.get("/", (_req, res) => {
   });
 });
 
-// Health check
+
+// ===========================
+// HEALTH CHECK
+// ===========================
+
 app.get("/api/health", (_req, res) => {
   res.status(200).json({
     success: true,
@@ -48,22 +57,43 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-// Authentication
+
+// ===========================
+// AUTHENTICATION
+// ===========================
+
 app.use("/api/auth", authRoutes);
 
-// Public property APIs
+
+// ===========================
+// PUBLIC APIS
+// ===========================
+
 app.use("/api/properties", propertyRoutes);
 
-// Public category APIs
 app.use("/api/categories", categoryRoutes);
 
-// Landlord APIs
+
+// ===========================
+// TENANT APIS
+// ===========================
+
+app.use("/api/rentals", rentalRoutes);
+
+
+// ===========================
+// LANDLORD APIS
+// ===========================
+
 app.use("/api/landlord", landlordRoutes);
 
-// 404 handler
+
+// ===========================
+// ERROR HANDLING
+// ===========================
+
 app.use(notFoundHandler);
 
-// Global error handler (must be last)
 app.use(errorHandler);
 
 export default app;

@@ -37,6 +37,14 @@ export const getAllProperties: RequestHandler = async (_req, res, next) => {
     // Public users can only see available properties
     const where: Prisma.PropertyWhereInput = {
       status: "AVAILABLE",
+
+      rentalRequests: {
+        none: {
+          status: {
+            in: ["APPROVED", "ACTIVE"],
+          },
+        },
+      },
     };
 
     // Search in title, description and address
@@ -194,6 +202,14 @@ export const getPropertyById: RequestHandler = async (_req, res, next) => {
       where: {
         id,
         status: "AVAILABLE",
+
+        rentalRequests: {
+          none: {
+            status: {
+              in: ["APPROVED", "ACTIVE"],
+            },
+          },
+        },
       },
       include: {
         category: true,

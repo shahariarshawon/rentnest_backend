@@ -1,4 +1,3 @@
-
 import { Router } from "express";
 
 import {
@@ -9,13 +8,16 @@ import {
 } from "../controllers/property.controller.js";
 
 import {
-  authenticate,
-  authorize,
-} from "../middlewares/auth.milddleware.js";
+  getLandlordRentalRequests,
+  updateRentalRequestStatus,
+} from "../controllers/rental.controller.js";
+
+import { authenticate, authorize } from "../middlewares/auth.milddleware.js";
 
 import {
   validateBody,
   validateParams,
+  validateQuery,
 } from "../middlewares/validate.middleware.js";
 
 import {
@@ -25,35 +27,38 @@ import {
   propertyIdSchema,
 } from "../validations/property.validation.js";
 
+import {
+  landlordDecisionSchema,
+  rentalIdSchema,
+  rentalQuerySchema,
+} from "../validations/rental.validation.js";
+
 const router = Router();
 
-// All landlord routes require authentication
+// Authentication and landlord authorization
 router.use(authenticate);
-
-// All routes in this router require the LANDLORD role
 router.use(authorize("LANDLORD"));
 
+// ===========================
+// PROPERTY MANAGEMENT
+// ===========================
 
 // Create property
-router.post(
-  "/properties",
-  validateBody(createPropertySchema),
-  createProperty
-);
+router.post("/properties", validateBody(createPropertySchema), createProperty);
 
 // Update property
 router.put(
   "/properties/:id",
   validateParams(propertyIdSchema),
   validateBody(updatePropertySchema),
-  updateProperty
+  updateProperty,
 );
 
 // Delete property
 router.delete(
   "/properties/:id",
   validateParams(propertyIdSchema),
-  deleteProperty
+  deleteProperty,
 );
 
 // Update property availability
@@ -61,7 +66,26 @@ router.patch(
   "/properties/:id/status",
   validateParams(propertyIdSchema),
   validateBody(propertyStatusSchema),
-  updatePropertyStatus
+  updatePropertyStatus,
+);
+
+// ===========================
+// RENTAL REQUEST MANAGEMENT
+// ===========================
+
+// Get all requests for landlord's properties
+router.get(
+  "/requests",
+  validateQuery(rentalQuerySchema),
+  getLandlordRentalRequests,
+);
+
+// Approve or reject rental request
+router.patch(
+  "/requests/:id",
+  validateParams(rentalIdSchema),
+  validateBody(landlordDecisionSchema),
+  updateRentalRequestStatus,
 );
 
 export default router;
