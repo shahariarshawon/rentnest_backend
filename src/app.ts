@@ -9,7 +9,7 @@ import propertyRoutes from "./routes/property.routes.js";
 import categoryRoutes from "./routes/category.routes.js";
 import landlordRoutes from "./routes/landlord.routes.js";
 import rentalRoutes from "./routes/rental.routes.js";
-
+import paymentRoutes from "./routes/payment.routes.js";
 import {
   notFoundHandler,
   errorHandler,
@@ -25,6 +25,11 @@ app.use(cors());
 
 // JSON parser
 app.use(express.json());
+
+// Required for SSLCommerz form callbacks and IPN
+app.use(express.urlencoded({
+  extended: false,
+}));
 
 // Request logger
 app.use(morgan("dev"));
@@ -73,6 +78,8 @@ app.use("/api/properties", propertyRoutes);
 
 app.use("/api/categories", categoryRoutes);
 
+// Payment APIs
+app.use("/api/payments", paymentRoutes);
 
 // ===========================
 // TENANT APIS

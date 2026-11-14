@@ -55,6 +55,11 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, next) => {
       message = "Requested record was not found";
     } else if (prismaError.code === "P2034") {
       statusCode = 409;
+
+      message =
+        "A concurrent database update occurred. Please refresh and try again.";
+    } else if (prismaError.code === "P2034") {
+      statusCode = 409;
       message =
         "A concurrent database update occurred. Please refresh and try again.";
     }
