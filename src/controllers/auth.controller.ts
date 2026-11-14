@@ -10,6 +10,7 @@ import { generateAccessToken } from "../utils/jwt.js";
 import type {
   RegisterInput,
   LoginInput,
+  UpdateProfileInput,
 } from "../validations/auth.validation.js";
 
 // ===========================
@@ -183,4 +184,67 @@ export const getMe: RequestHandler = (
     message: "User profile retrieved successfully",
     data: req.user,
   });
+};
+
+// ===========================
+// UPDATE CURRENT USER PROFILE
+// ===========================
+
+export const updateMe: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      throw new AppError("Authentication required", 401);
+    }
+
+    const { name, phone } = req.body as UpdateProfileInput;
+
+    if (!name && phone === undefined) {
+      throw new AppError(
+        "At least one field (name or phone) must be provided",
+        400,
+      );
+    }
+
+    if (phone) {
+      const existingPhone = await prisma.user.findFirst({
+        where: {
+          phone,
+          id: { not: req.user.id },
+        },
+      });
+
+      if (existingPhone) {
+        throw new AppError(
+          "This phone number is already registered to another account",
+          409,
+        );
+      }
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        ...(name ? { name } : {}),
+        ...(phone !== undefined ? { phone } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "User profile updated successfully",
+      data: updatedUser,
+    });
+  } catch (error) {
+    next(error);
+  }
 };

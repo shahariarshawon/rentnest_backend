@@ -9,7 +9,7 @@ import {
 import {
   authenticate,
   authorize,
-} from "../middlewares/auth.milddleware.js";
+} from "../middlewares/auth.middleware.js";
 
 import {
   validateBody,

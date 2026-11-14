@@ -207,6 +207,18 @@ export const propertyQuerySchema = z.object({
 
 
 // ===========================
+// LANDLORD PROPERTY QUERY VALIDATION
+// ===========================
+
+export const landlordPropertyQuerySchema = z
+  .object({
+    status: z.enum(["AVAILABLE", "RENTED", "UNAVAILABLE"]).optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(50).default(10),
+  })
+  .strict();
+
+// ===========================
 // TYPESCRIPT TYPES
 // ===========================
 
@@ -218,3 +230,6 @@ export type UpdatePropertyInput =
 
 export type PropertyQueryInput =
   z.infer<typeof propertyQuerySchema>;
+
+export type LandlordPropertyQueryInput =
+  z.infer<typeof landlordPropertyQuerySchema>;

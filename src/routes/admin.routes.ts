@@ -5,12 +5,13 @@ import {
   updateUserStatus,
   getAllAdminProperties,
   getAllAdminRentals,
+  getAllAdminPayments,
   createAdminCategory,
   updateAdminCategory,
   deleteAdminCategory,
 } from "../controllers/admin.controller.js";
 
-import { authenticate, authorize } from "../middlewares/auth.milddleware.js";
+import { authenticate, authorize } from "../middlewares/auth.middleware.js";
 
 import {
   validateBody,
@@ -24,6 +25,7 @@ import {
   adminUserIdSchema,
   adminPropertyQuerySchema,
   adminRentalQuerySchema,
+  adminPaymentQuerySchema,
   createCategorySchema,
   updateCategorySchema,
   adminCategoryIdSchema,
@@ -73,6 +75,17 @@ router.get(
   "/rentals",
   validateQuery(adminRentalQuerySchema),
   getAllAdminRentals,
+);
+
+// ===========================
+// PAYMENT MONITORING
+// ===========================
+
+// Get all payments
+router.get(
+  "/payments",
+  validateQuery(adminPaymentQuerySchema),
+  getAllAdminPayments,
 );
 
 // ===========================

@@ -8,6 +8,7 @@ import type {
   AdminUserQuery,
   AdminPropertyQuery,
   AdminRentalQuery,
+  AdminPaymentQuery,
 } from "../validations/admin.validation.js";
 
 // ===========================
@@ -448,6 +449,90 @@ export const deleteAdminCategory: RequestHandler = async (req, res, next) => {
       success: true,
       message: "Category deleted successfully",
       data: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ===========================
+// 8. GET ALL PAYMENTS (ADMIN MONITORING)
+// ===========================
+
+export const getAllAdminPayments: RequestHandler = async (req, res, next) => {
+  try {
+    const query = res.locals.validatedQuery as AdminPaymentQuery;
+    const { status, provider, page, limit } = query;
+
+    const where: Prisma.PaymentWhereInput = {
+      ...(status ? { status } : {}),
+      ...(provider ? { provider } : {}),
+    };
+
+    const skip = (page - 1) * limit;
+
+    const [payments, total, totalRevenue] = await Promise.all([
+      prisma.payment.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: {
+          createdAt: "desc",
+        },
+        include: {
+          rentalRequest: {
+            include: {
+              tenant: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+              property: {
+                select: {
+                  id: true,
+                  title: true,
+                  city: true,
+                  landlord: {
+                    select: {
+                      id: true,
+                      name: true,
+                      email: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+      prisma.payment.count({ where }),
+      prisma.payment.aggregate({
+        where: {
+          status: "COMPLETED",
+        },
+        _sum: {
+          amount: true,
+        },
+      }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "All payments retrieved successfully",
+      data: {
+        payments,
+        summary: {
+          totalCompletedRevenue: totalRevenue._sum.amount ?? 0,
+        },
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
     });
   } catch (error) {
     next(error);

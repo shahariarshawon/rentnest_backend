@@ -115,6 +115,7 @@ export const initiateSSLPayment = async (
 // VALIDATE PAYMENT
 // ===========================
 
+
 export const validateSSLPayment = async (
   valId: string,
 ): Promise<SSLCommerzValidationResponse> => {
@@ -128,20 +129,56 @@ export const validateSSLPayment = async (
     format: "json",
   });
 
-  const response = await fetch(
-    `${config.baseUrl}/validator/api/validationserverAPI.php?${params}`,
-    {
-      method: "GET",
-      signal: AbortSignal.timeout(30000),
-    },
-  );
+  const url =
+    `${config.baseUrl}/validator/api/validationserverAPI.php?${params}`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    signal: AbortSignal.timeout(30000),
+  });
 
   if (!response.ok) {
-    throw new AppError("SSLCommerz payment validation failed", 502);
+    console.error("SSLCommerz Validation HTTP Error:", {
+      status: response.status,
+      statusText: response.statusText,
+      contentType: response.headers.get("content-type"),
+    });
+
+    throw new AppError(
+      `SSLCommerz validation API returned HTTP ${response.status}`,
+      502
+    );
   }
 
-  return (await response.json()) as SSLCommerzValidationResponse;
+  const responseText = await response.text();
+
+  let result: SSLCommerzValidationResponse;
+
+  try {
+    result = JSON.parse(responseText) as
+      SSLCommerzValidationResponse;
+  } catch {
+    console.error(
+      "SSLCommerz returned an invalid JSON response"
+    );
+
+    throw new AppError(
+      "Invalid response received from SSLCommerz",
+      502
+    );
+  }
+
+  console.log("SSLCommerz Validation Result:", {
+    status: result.status,
+    tran_id: result.tran_id,
+    amount: result.amount,
+    currency: result.currency,
+    currency_type: result.currency_type,
+  });
+
+  return result;
 };
+
 
 // ===========================
 // QUERY TRANSACTION BY ID

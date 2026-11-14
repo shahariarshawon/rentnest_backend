@@ -44,7 +44,28 @@ export const loginSchema = z.object({
     .min(1, "Password is required"),
 }).strict();
 
+// Profile update validation
+export const updateProfileSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(2, "Name must contain at least 2 characters")
+      .max(80, "Name cannot exceed 80 characters")
+      .optional(),
+
+    phone: z
+      .string()
+      .trim()
+      .min(7, "Phone number is too short")
+      .max(20, "Phone number is too long")
+      .optional(),
+  })
+  .strict();
+
 // TypeScript types
 export type RegisterInput = z.infer<typeof registerSchema>;
 
 export type LoginInput = z.infer<typeof loginSchema>;
+
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

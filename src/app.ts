@@ -1,9 +1,8 @@
-
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-
+import type { RequestHandler } from "express";
 import authRoutes from "./routes/auth.routes.js";
 import propertyRoutes from "./routes/property.routes.js";
 import categoryRoutes from "./routes/category.routes.js";
@@ -12,13 +11,22 @@ import rentalRoutes from "./routes/rental.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import reviewRoutes from "./routes/review.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
+import swaggerUi from "swagger-ui-express";
+import { readFileSync } from "node:fs";
+import { parse } from "yaml";
 import {
   notFoundHandler,
   errorHandler,
 } from "./middlewares/error.middleware.js";
 
 const app = express();
+// ===========================
+// SWAGGER OPENAPI DOCUMENTATION
+// ===========================
 
+const openApiDocument = parse(
+  readFileSync(new URL("../docs/openapi.yaml", import.meta.url), "utf-8"),
+);
 // Security middleware
 app.use(helmet());
 
@@ -29,13 +37,14 @@ app.use(cors());
 app.use(express.json());
 
 // Required for SSLCommerz form callbacks and IPN
-app.use(express.urlencoded({
-  extended: false,
-}));
+app.use(
+  express.urlencoded({
+    extended: false,
+  }),
+);
 
 // Request logger
 app.use(morgan("dev"));
-
 
 // ===========================
 // ROOT ROUTE
@@ -48,7 +57,6 @@ app.get("/", (_req, res) => {
     data: null,
   });
 });
-
 
 // ===========================
 // HEALTH CHECK
@@ -64,13 +72,30 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
+// ===========================
+// SWAGGER DOCUMENTATION ROUTE
+// ===========================
 
+// ===========================
+// SWAGGER DOCUMENTATION ROUTE
+// ===========================
+
+const swaggerDocsMiddleware: RequestHandler = (_req, res, next) => {
+  res.removeHeader("Content-Security-Policy");
+  next();
+};
+
+app.use(
+  "/api/docs",
+  swaggerDocsMiddleware,
+  swaggerUi.serve,
+  swaggerUi.setup(openApiDocument),
+);
 // ===========================
 // AUTHENTICATION
 // ===========================
 
 app.use("/api/auth", authRoutes);
-
 
 // ===========================
 // PUBLIC APIS
@@ -94,13 +119,11 @@ app.use("/api/admin", adminRoutes);
 
 app.use("/api/rentals", rentalRoutes);
 
-
 // ===========================
 // LANDLORD APIS
 // ===========================
 
 app.use("/api/landlord", landlordRoutes);
-
 
 // ===========================
 // ERROR HANDLING

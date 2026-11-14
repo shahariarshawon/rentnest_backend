@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import {
   createProperty,
+  getLandlordProperties,
   updateProperty,
   deleteProperty,
   updatePropertyStatus,
@@ -12,7 +13,7 @@ import {
   completeRentalRequest,
 } from "../controllers/rental.controller.js";
 
-import { authenticate, authorize } from "../middlewares/auth.milddleware.js";
+import { authenticate, authorize } from "../middlewares/auth.middleware.js";
 
 import {
   validateBody,
@@ -25,6 +26,7 @@ import {
   updatePropertySchema,
   propertyStatusSchema,
   propertyIdSchema,
+  landlordPropertyQuerySchema,
 } from "../validations/property.validation.js";
 
 import {
@@ -42,6 +44,13 @@ router.use(authorize("LANDLORD"));
 // ===========================
 // PROPERTY MANAGEMENT
 // ===========================
+
+// List landlord's own properties
+router.get(
+  "/properties",
+  validateQuery(landlordPropertyQuerySchema),
+  getLandlordProperties,
+);
 
 // Create property
 router.post("/properties", validateBody(createPropertySchema), createProperty);

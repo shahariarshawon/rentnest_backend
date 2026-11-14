@@ -8,6 +8,7 @@ import type {
   CreatePropertyInput,
   UpdatePropertyInput,
   PropertyQueryInput,
+  LandlordPropertyQueryInput,
 } from "../validations/property.validation.js";
 
 // ===========================
@@ -455,6 +456,66 @@ export const updatePropertyStatus: RequestHandler = async (req, res, next) => {
       success: true,
       message: "Property availability updated successfully",
       data: updatedProperty,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ===========================
+// GET LANDLORD'S OWN PROPERTIES
+// ===========================
+
+export const getLandlordProperties: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      throw new AppError("Authentication required", 401);
+    }
+
+    const landlordId = req.user.id;
+    const query = res.locals.validatedQuery as LandlordPropertyQueryInput;
+    const { status, page, limit } = query;
+
+    const where: Prisma.PropertyWhereInput = {
+      landlordId,
+      ...(status ? { status } : {}),
+    };
+
+    const skip = (page - 1) * limit;
+
+    const [properties, total] = await Promise.all([
+      prisma.property.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: {
+          createdAt: "desc",
+        },
+        include: {
+          category: true,
+          _count: {
+            select: {
+              rentalRequests: true,
+              reviews: true,
+            },
+          },
+        },
+      }),
+      prisma.property.count({ where }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "Landlord properties retrieved successfully",
+      data: {
+        properties,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
     });
   } catch (error) {
     next(error);

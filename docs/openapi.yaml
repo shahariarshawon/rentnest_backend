@@ -1,0 +1,1229 @@
+
+openapi: 3.0.3
+
+info:
+  title: RentNest Backend API
+  description: |
+    REST API documentation for RentNest Rental Property Marketplace.
+
+    Roles:
+    - TENANT: Browse properties, request rentals, make payments and submit reviews.
+    - LANDLORD: Manage properties and rental requests.
+    - ADMIN: Manage users, properties, rentals and categories.
+
+    Authentication uses JWT Bearer tokens.
+    Payment gateway: SSLCommerz.
+  version: 1.0.0
+  contact:
+    name: RentNest API Support
+
+servers:
+  - url: http://localhost:5000
+    description: Local development server
+
+tags:
+  - name: General
+  - name: Authentication
+  - name: Properties
+  - name: Categories
+  - name: Landlord
+  - name: Rentals
+  - name: Payments
+  - name: Reviews
+  - name: Admin
+
+paths:
+
+  /:
+    get:
+      tags: [General]
+      summary: API welcome message
+      operationId: welcome
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+
+  /api/health:
+    get:
+      tags: [General]
+      summary: Check API health
+      operationId: healthCheck
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+
+  /api/auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register tenant or landlord
+      operationId: registerUser
+      requestBody:
+        $ref: '#/components/requestBodies/Register'
+      responses:
+        '201':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login user and receive JWT
+      operationId: loginUser
+      requestBody:
+        $ref: '#/components/requestBodies/Login'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get authenticated user profile
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+    patch:
+      tags: [Authentication]
+      summary: Update authenticated user profile
+      operationId: updateCurrentUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Tenant One
+                phone:
+                  type: string
+                  example: "01712345678"
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/properties:
+    get:
+      tags: [Properties]
+      summary: Browse and filter available properties
+      operationId: listProperties
+      parameters:
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/City'
+        - $ref: '#/components/parameters/Area'
+        - $ref: '#/components/parameters/Category'
+        - $ref: '#/components/parameters/MinPrice'
+        - $ref: '#/components/parameters/MaxPrice'
+        - $ref: '#/components/parameters/Bedrooms'
+        - $ref: '#/components/parameters/Bathrooms'
+        - $ref: '#/components/parameters/Amenities'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/SortBy'
+        - $ref: '#/components/parameters/SortOrder'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/properties/{id}:
+    get:
+      tags: [Properties]
+      summary: Get property details
+      operationId: getProperty
+      parameters:
+        - $ref: '#/components/parameters/PropertyId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/categories:
+    get:
+      tags: [Categories]
+      summary: Get all property categories
+      operationId: listCategories
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+
+  /api/landlord/properties:
+    get:
+      tags: [Landlord]
+      summary: Get all properties owned by authenticated landlord
+      operationId: listLandlordProperties
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [AVAILABLE, RENTED, UNAVAILABLE]
+          description: Filter properties by availability status
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+    post:
+      tags: [Landlord]
+      summary: Create property listing
+      operationId: createProperty
+      security:
+        - bearerAuth: []
+      requestBody:
+        $ref: '#/components/requestBodies/Property'
+      responses:
+        '201':
+          $ref: '#/components/responses/Created'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/landlord/properties/{id}:
+    put:
+      tags: [Landlord]
+      summary: Update property
+      operationId: updateProperty
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PropertyId'
+      requestBody:
+        $ref: '#/components/requestBodies/PropertyUpdate'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+    delete:
+      tags: [Landlord]
+      summary: Delete property
+      operationId: deleteProperty
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PropertyId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/landlord/properties/{id}/status:
+    patch:
+      tags: [Landlord]
+      summary: Update property availability
+      operationId: updatePropertyStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PropertyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [AVAILABLE, UNAVAILABLE]
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/landlord/requests:
+    get:
+      tags: [Landlord]
+      summary: Get rental requests for landlord properties
+      operationId: getLandlordRequests
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RentalStatus'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/landlord/requests/{id}:
+    patch:
+      tags: [Landlord]
+      summary: Approve or reject rental request
+      operationId: updateRentalRequest
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RentalId'
+      requestBody:
+        $ref: '#/components/requestBodies/LandlordDecision'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/landlord/requests/{id}/complete:
+    patch:
+      tags: [Landlord]
+      summary: Complete active rental
+      operationId: completeRental
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RentalId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/rentals:
+    post:
+      tags: [Rentals]
+      summary: Submit rental request
+      operationId: createRentalRequest
+      security:
+        - bearerAuth: []
+      requestBody:
+        $ref: '#/components/requestBodies/Rental'
+      responses:
+        '201':
+          $ref: '#/components/responses/Created'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+    get:
+      tags: [Rentals]
+      summary: Get tenant rental history
+      operationId: getMyRentals
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RentalStatus'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/rentals/{id}:
+    get:
+      tags: [Rentals]
+      summary: Get rental request details
+      operationId: getRentalById
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RentalId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/payments/create:
+    post:
+      tags: [Payments]
+      summary: Create SSLCommerz payment session
+      operationId: createPayment
+      security:
+        - bearerAuth: []
+      requestBody:
+        $ref: '#/components/requestBodies/Payment'
+      responses:
+        '201':
+          $ref: '#/components/responses/Created'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/payments/confirm:
+    post:
+      tags: [Payments]
+      summary: Verify SSLCommerz payment callback
+      operationId: confirmPayment
+      description: Public gateway callback. Payment is verified server-to-server.
+      requestBody:
+        $ref: '#/components/requestBodies/PaymentCallback'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        '202':
+          $ref: '#/components/responses/Accepted'
+        default:
+          $ref: '#/components/responses/ApiError'
+    get:
+      tags: [Payments]
+      summary: Verify SSLCommerz payment callback via browser redirect
+      operationId: confirmPaymentGet
+      parameters:
+        - in: query
+          name: tran_id
+          schema:
+            type: string
+          description: Merchant transaction ID
+        - in: query
+          name: val_id
+          schema:
+            type: string
+          description: Gateway validation ID
+        - in: query
+          name: status
+          schema:
+            type: string
+          description: Gateway status
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/payments/ipn:
+    post:
+      tags: [Payments]
+      summary: Instant Payment Notification (IPN) webhook
+      operationId: ipnPayment
+      description: Direct server-to-server IPN hook from SSLCommerz.
+      requestBody:
+        $ref: '#/components/requestBodies/PaymentCallback'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/payments:
+    get:
+      tags: [Payments]
+      summary: Get tenant payment history
+      operationId: getMyPayments
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PaymentStatus'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/payments/{id}:
+    get:
+      tags: [Payments]
+      summary: Get payment details
+      operationId: getPaymentById
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/reviews:
+    post:
+      tags: [Reviews]
+      summary: Submit property review
+      operationId: createReview
+      security:
+        - bearerAuth: []
+      requestBody:
+        $ref: '#/components/requestBodies/Review'
+      responses:
+        '201':
+          $ref: '#/components/responses/Created'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/reviews/property/{propertyId}:
+    get:
+      tags: [Reviews]
+      summary: Get reviews for a property
+      operationId: getPropertyReviews
+      parameters:
+        - $ref: '#/components/parameters/ReviewPropertyId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/admin/users:
+    get:
+      tags: [Admin]
+      summary: Get all users
+      operationId: adminGetUsers
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/UserRole'
+        - $ref: '#/components/parameters/UserStatus'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/admin/users/{id}:
+    patch:
+      tags: [Admin]
+      summary: Ban or unban user
+      operationId: adminUpdateUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [ACTIVE, BANNED]
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/admin/properties:
+    get:
+      tags: [Admin]
+      summary: Get all properties
+      operationId: adminGetProperties
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/City'
+        - $ref: '#/components/parameters/CategoryId'
+        - $ref: '#/components/parameters/PropertyStatus'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/admin/rentals:
+    get:
+      tags: [Admin]
+      summary: Get all rental requests
+      operationId: adminGetRentals
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RentalStatus'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/admin/payments:
+    get:
+      tags: [Admin]
+      summary: Monitor all marketplace payments
+      operationId: adminGetPayments
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [PENDING, COMPLETED, FAILED, CANCELLED]
+          description: Filter payments by status
+        - in: query
+          name: provider
+          schema:
+            type: string
+            enum: [STRIPE, SSLCOMMERZ]
+          description: Filter payments by provider
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/admin/categories:
+    post:
+      tags: [Admin]
+      summary: Create property category
+      operationId: adminCreateCategory
+      security:
+        - bearerAuth: []
+      requestBody:
+        $ref: '#/components/requestBodies/Category'
+      responses:
+        '201':
+          $ref: '#/components/responses/Created'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+  /api/admin/categories/{id}:
+    patch:
+      tags: [Admin]
+      summary: Update property category
+      operationId: adminUpdateCategory
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CategoryPathId'
+      requestBody:
+        $ref: '#/components/requestBodies/CategoryUpdate'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+    delete:
+      tags: [Admin]
+      summary: Delete property category
+      operationId: adminDeleteCategory
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Success'
+        default:
+          $ref: '#/components/responses/ApiError'
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Success:
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SuccessResponse'
+
+    Created:
+      description: Resource created successfully
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SuccessResponse'
+
+    Accepted:
+      description: Payment callback accepted
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SuccessResponse'
+
+    ApiError:
+      description: |
+        Structured API error. Possible HTTP statuses include
+        400, 401, 403, 404, 409 and 500.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Operation completed successfully
+        data: {}
+
+    ErrorResponse:
+      type: object
+      required: [success, message, errorDetails]
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Validation failed
+        errorDetails:
+          nullable: true
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+
+    RegisterRequest:
+      type: object
+      required: [name, email, password, role]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 80
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+        phone:
+          type: string
+        role:
+          type: string
+          enum: [TENANT, LANDLORD]
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    PropertyRequest:
+      type: object
+      required:
+        - title
+        - description
+        - address
+        - city
+        - country
+        - monthlyRent
+        - bedrooms
+        - bathrooms
+        - categoryId
+      properties:
+        title:
+          type: string
+          minLength: 5
+          maxLength: 150
+        description:
+          type: string
+          minLength: 20
+        address:
+          type: string
+        area:
+          type: string
+          nullable: true
+        city:
+          type: string
+        country:
+          type: string
+        monthlyRent:
+          type: number
+          exclusiveMinimum: true
+        securityDeposit:
+          type: number
+          nullable: true
+        bedrooms:
+          type: integer
+          minimum: 0
+        bathrooms:
+          type: integer
+          minimum: 0
+        areaSqFt:
+          type: integer
+          nullable: true
+        amenities:
+          type: array
+          items:
+            type: string
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+        categoryId:
+          type: string
+          format: uuid
+        availableFrom:
+          type: string
+          format: date-time
+          nullable: true
+
+    PropertyUpdateRequest:
+      type: object
+      minProperties: 1
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        address:
+          type: string
+        area:
+          type: string
+          nullable: true
+        city:
+          type: string
+        country:
+          type: string
+        monthlyRent:
+          type: number
+        securityDeposit:
+          type: number
+          nullable: true
+        bedrooms:
+          type: integer
+        bathrooms:
+          type: integer
+        areaSqFt:
+          type: integer
+          nullable: true
+        amenities:
+          type: array
+          items:
+            type: string
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+        categoryId:
+          type: string
+          format: uuid
+        availableFrom:
+          type: string
+          format: date-time
+          nullable: true
+
+    RentalRequest:
+      type: object
+      required: [propertyId, moveInDate]
+      properties:
+        propertyId:
+          type: string
+          format: uuid
+        message:
+          type: string
+          maxLength: 1000
+        moveInDate:
+          type: string
+          format: date-time
+        leaseDurationMonths:
+          type: integer
+          minimum: 1
+          maximum: 120
+
+    LandlordDecision:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [APPROVED, REJECTED]
+        landlordResponse:
+          type: string
+          maxLength: 1000
+
+    PaymentRequest:
+      type: object
+      required:
+        - rentalRequestId
+        - customerPhone
+        - customerAddress
+        - customerCity
+        - customerPostcode
+      properties:
+        rentalRequestId:
+          type: string
+          format: uuid
+        customerPhone:
+          type: string
+          minLength: 8
+          maxLength: 20
+        customerAddress:
+          type: string
+          minLength: 3
+          maxLength: 50
+        customerCity:
+          type: string
+          minLength: 2
+          maxLength: 50
+        customerPostcode:
+          type: string
+          minLength: 3
+          maxLength: 30
+
+    PaymentCallback:
+      type: object
+      required: [tran_id]
+      properties:
+        tran_id:
+          type: string
+        val_id:
+          type: string
+        status:
+          type: string
+          enum: [VALID, VALIDATED, FAILED, CANCELLED, EXPIRED, UNATTEMPTED]
+      additionalProperties: true
+
+    ReviewRequest:
+      type: object
+      required: [rentalRequestId, rating]
+      properties:
+        rentalRequestId:
+          type: string
+          format: uuid
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+          maxLength: 1000
+
+    CategoryRequest:
+      type: object
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        slug:
+          type: string
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+
+    CategoryUpdateRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+
+  requestBodies:
+
+    Register:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RegisterRequest'
+
+    Login:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LoginRequest'
+
+    Property:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PropertyRequest'
+
+    PropertyUpdate:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PropertyUpdateRequest'
+
+    Rental:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RentalRequest'
+
+    LandlordDecision:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LandlordDecision'
+
+    Payment:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PaymentRequest'
+
+    PaymentCallback:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PaymentCallback'
+        application/x-www-form-urlencoded:
+          schema:
+            $ref: '#/components/schemas/PaymentCallback'
+
+    Review:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ReviewRequest'
+
+    Category:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CategoryRequest'
+
+    CategoryUpdate:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CategoryUpdateRequest'
+
+  parameters:
+
+    PropertyId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    RentalId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    PaymentId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    UserId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    CategoryId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    ReviewPropertyId:
+      name: propertyId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    Search:
+      name: search
+      in: query
+      schema:
+        type: string
+
+    City:
+      name: city
+      in: query
+      schema:
+        type: string
+
+    Area:
+      name: area
+      in: query
+      schema:
+        type: string
+
+    Category:
+      name: category
+      in: query
+      schema:
+        type: string
+
+    CategoryPathId:
+      name: categoryId
+      in: query
+      schema:
+        type: string
+        format: uuid
+
+    MinPrice:
+      name: minPrice
+      in: query
+      schema:
+        type: number
+        minimum: 0
+
+    MaxPrice:
+      name: maxPrice
+      in: query
+      schema:
+        type: number
+        exclusiveMinimum: true
+
+    Bedrooms:
+      name: bedrooms
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+
+    Bathrooms:
+      name: bathrooms
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+
+    Amenities:
+      name: amenities
+      in: query
+      schema:
+        type: string
+
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+
+    SortBy:
+      name: sortBy
+      in: query
+      schema:
+        type: string
+        enum: [createdAt, monthlyRent]
+
+    SortOrder:
+      name: sortOrder
+      in: query
+      schema:
+        type: string
+        enum: [asc, desc]
+
+    RentalStatus:
+      name: status
+      in: query
+      schema:
+        type: string
+        enum: [PENDING, APPROVED, REJECTED, ACTIVE, COMPLETED, CANCELLED]
+
+    PaymentStatus:
+      name: status
+      in: query
+      schema:
+        type: string
+        enum: [PENDING, COMPLETED, FAILED, CANCELLED]
+
+    UserRole:
+      name: role
+      in: query
+      schema:
+        type: string
+        enum: [TENANT, LANDLORD, ADMIN]
+
+    UserStatus:
+      name: status
+      in: query
+      schema:
+        type: string
+        enum: [ACTIVE, BANNED]
+
+    PropertyStatus:
+      name: status
+      in: query
+      schema:
+        type: string
+        enum: [AVAILABLE, RENTED, UNAVAILABLE]

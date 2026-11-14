@@ -11,7 +11,7 @@ import {
 import {
   authenticate,
   authorize,
-} from "../middlewares/auth.milddleware.js";
+} from "../middlewares/auth.middleware.js";
 
 import {
   validateBody,
@@ -29,16 +29,17 @@ const router = Router();
 
 
 // ===========================
-// PUBLIC GATEWAY CALLBACK
+// PUBLIC GATEWAY CALLBACKS & IPN
 // ===========================
 
-// SSLCommerz must access this endpoint
-// without a JWT token.
-// Payment is verified server-to-server.
-router.post(
-  "/confirm",
-  confirmPayment
-);
+// SSLCommerz accesses these endpoints without a JWT token.
+// Payments are verified server-to-server.
+router.post("/confirm", confirmPayment);
+router.get("/confirm", confirmPayment);
+router.post("/ipn", confirmPayment);
+router.post("/success", confirmPayment);
+router.post("/fail", confirmPayment);
+router.post("/cancel", confirmPayment);
 
 
 // ===========================

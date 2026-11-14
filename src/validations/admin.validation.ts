@@ -136,3 +136,18 @@ export type AdminPropertyQuery =
 
 export type AdminRentalQuery =
   z.infer<typeof adminRentalQuerySchema>;
+
+// ===========================
+// ADMIN PAYMENT QUERY
+// ===========================
+
+export const adminPaymentQuerySchema = z
+  .object({
+    status: z.enum(["PENDING", "COMPLETED", "FAILED", "CANCELLED"]).optional(),
+    provider: z.enum(["STRIPE", "SSLCOMMERZ"]).optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(50).default(10),
+  })
+  .strict();
+
+export type AdminPaymentQuery = z.infer<typeof adminPaymentQuerySchema>;
