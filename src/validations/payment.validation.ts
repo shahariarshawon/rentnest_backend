@@ -75,6 +75,32 @@ export const paymentQuerySchema = z.object({
 
 
 // ===========================
+// SSLCOMMERZ CALLBACK VALIDATION
+// ===========================
+
+export const paymentCallbackSchema = z.object({
+  tran_id: z
+    .string()
+    .min(1)
+    .max(30),
+
+  val_id: z
+    .string()
+    .optional(),
+
+  status: z.enum([
+    "VALID",
+    "VALIDATED",
+    "FAILED",
+    "CANCELLED",
+    "EXPIRED",
+    "UNATTEMPTED",
+  ]).optional(),
+}).passthrough();
+
+
+
+// ===========================
 // TYPES
 // ===========================
 
