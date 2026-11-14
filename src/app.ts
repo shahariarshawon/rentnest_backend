@@ -10,6 +10,8 @@ import categoryRoutes from "./routes/category.routes.js";
 import landlordRoutes from "./routes/landlord.routes.js";
 import rentalRoutes from "./routes/rental.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
+import reviewRoutes from "./routes/review.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 import {
   notFoundHandler,
   errorHandler,
@@ -80,6 +82,11 @@ app.use("/api/categories", categoryRoutes);
 
 // Payment APIs
 app.use("/api/payments", paymentRoutes);
+// Review APIs
+app.use("/api/reviews", reviewRoutes);
+
+// Admin APIs
+app.use("/api/admin", adminRoutes);
 
 // ===========================
 // TENANT APIS
