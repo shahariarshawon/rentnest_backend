@@ -12,7 +12,8 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "typecheck": "tsc --noEmit",
-    "test": "tsx run_e2e_tests.ts"
+    "test": "tsx run_e2e_tests.ts",
+    "db:deploy": "prisma migrate deploy"
   },
   "keywords": [],
   "author": "",
