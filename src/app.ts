@@ -4,18 +4,25 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 
+import authRoutes from "./routes/auth.routes.js";
+
+import {
+  notFoundHandler,
+  errorHandler,
+} from "./middlewares/error.middleware.js";
+
 const app = express();
 
 // Security middleware
 app.use(helmet());
 
-// Cross-origin configuration
+// CORS
 app.use(cors());
 
-// Parse JSON requests
+// JSON body parser
 app.use(express.json());
 
-// Log incoming requests
+// Request logging
 app.use(morgan("dev"));
 
 // Root route
@@ -27,7 +34,7 @@ app.get("/", (_req, res) => {
   });
 });
 
-// Health check route
+// Health check
 app.get("/api/health", (_req, res) => {
   res.status(200).json({
     success: true,
@@ -37,5 +44,14 @@ app.get("/api/health", (_req, res) => {
     },
   });
 });
+
+// Authentication routes
+app.use("/api/auth", authRoutes);
+
+// Handle unknown routes
+app.use(notFoundHandler);
+
+// Global error handler (must be last)
+app.use(errorHandler);
 
 export default app;
