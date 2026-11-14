@@ -5,6 +5,9 @@ import helmet from "helmet";
 import morgan from "morgan";
 
 import authRoutes from "./routes/auth.routes.js";
+import propertyRoutes from "./routes/property.routes.js";
+import categoryRoutes from "./routes/category.routes.js";
+import landlordRoutes from "./routes/landlord.routes.js";
 
 import {
   notFoundHandler,
@@ -19,10 +22,10 @@ app.use(helmet());
 // CORS
 app.use(cors());
 
-// JSON body parser
+// JSON parser
 app.use(express.json());
 
-// Request logging
+// Request logger
 app.use(morgan("dev"));
 
 // Root route
@@ -45,10 +48,19 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-// Authentication routes
+// Authentication
 app.use("/api/auth", authRoutes);
 
-// Handle unknown routes
+// Public property APIs
+app.use("/api/properties", propertyRoutes);
+
+// Public category APIs
+app.use("/api/categories", categoryRoutes);
+
+// Landlord APIs
+app.use("/api/landlord", landlordRoutes);
+
+// 404 handler
 app.use(notFoundHandler);
 
 // Global error handler (must be last)
