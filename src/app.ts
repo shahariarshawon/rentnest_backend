@@ -89,7 +89,11 @@ app.use(
   "/api/docs",
   swaggerDocsMiddleware,
   swaggerUi.serve,
-  swaggerUi.setup(openApiDocument),
+  swaggerUi.setup(openApiDocument, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  }),
 );
 // ===========================
 // AUTHENTICATION

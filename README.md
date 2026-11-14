@@ -149,9 +149,11 @@ The server will start on `http://localhost:5000`.
 ## 📖 API Documentation (Swagger UI)
 
 Interactive Swagger / OpenAPI 3.0 documentation is available at:
-```
-http://localhost:5000/api/docs
-```
+- **Live Production (Render):** [https://rentnest-backend-wx28.onrender.com/api/docs](https://rentnest-backend-wx28.onrender.com/api/docs)
+- **Local Development:** `http://localhost:5000/api/docs`
+
+The Swagger UI allows choosing between the **Production server** (`https://rentnest-backend-wx28.onrender.com`) and **Local development server** (`http://localhost:5000`) directly from the *Servers* dropdown.
+
 It includes all endpoints, query parameters, request bodies, role authorization badges (Bearer Token), and schemas.
 
 ---
@@ -165,6 +167,9 @@ npm run typecheck
 
 # Production build verification
 npm run build
+
+# Automated end-to-end integration test suite
+npm test
 ```
 
 ---
@@ -172,6 +177,8 @@ npm run build
 ## 📋 Assignment Submission Checklist
 
 - [x] **Backend GitHub Repository:** All source code and version control.
+- [x] **Live API URL:** `https://rentnest-backend-wx28.onrender.com`
+- [x] **Live Swagger / OpenAPI Documentation:** `https://rentnest-backend-wx28.onrender.com/api/docs`
 - [x] **20+ Meaningful Backend Commits:** Clean, descriptive history spanning all features (>38 commits).
 - [x] **Working Admin Credentials:** `admin@rentnest.com` / `15025` seeded and operational.
 - [x] **Test Accounts:** Verified credentials for Tenant (`tenant@example.com`) and Landlord (`landlord@example.com`).
