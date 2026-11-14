@@ -152,7 +152,8 @@ model RentalRequest {
   landlordResponse String?   @db.Text
   decidedAt        DateTime?
 
-  tenant   User     @relation("TenantRentalRequests", fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant User @relation("TenantRentalRequests", fields: [tenantId], references: [id], onDelete: Restrict)
+
   property Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
 
   payments Payment[]
