@@ -492,3 +492,115 @@ export const updateRentalRequestStatus: RequestHandler = async (
     next(error);
   }
 };
+
+
+export const completeRentalRequest: RequestHandler = async (
+  req,
+  res,
+  next
+) => {
+  try {
+    if (!req.user) {
+      throw new AppError("Authentication required", 401);
+    }
+
+    const landlordId = req.user.id;
+
+    const { id } = res.locals.validatedParams as {
+      id: string;
+    };
+
+    const completedRental = await prisma.$transaction(
+      async (tx) => {
+
+        const rentalRequest =
+          await tx.rentalRequest.findUnique({
+            where: { id },
+            include: {
+              property: {
+                select: {
+                  id: true,
+                  landlordId: true,
+                },
+              },
+              payments: {
+                where: {
+                  status: "COMPLETED",
+                },
+                select: {
+                  id: true,
+                },
+              },
+            },
+          });
+
+        if (!rentalRequest) {
+          throw new AppError(
+            "Rental request not found",
+            404
+          );
+        }
+
+        // Verify landlord ownership
+        if (
+          rentalRequest.property.landlordId !== landlordId
+        ) {
+          throw new AppError(
+            "You cannot manage another landlord's rental",
+            403
+          );
+        }
+
+        // Only active rentals can be completed
+        if (rentalRequest.status !== "ACTIVE") {
+          throw new AppError(
+            "Only active rentals can be marked as completed",
+            409
+          );
+        }
+
+        // Verify successful payment
+        if (rentalRequest.payments.length === 0) {
+          throw new AppError(
+            "Rental cannot be completed without a successful payment",
+            409
+          );
+        }
+
+        // Complete rental
+        const updated =
+          await tx.rentalRequest.update({
+            where: { id },
+            data: {
+              status: "COMPLETED",
+            },
+          });
+
+        // Make property available again
+        await tx.property.update({
+          where: {
+            id: rentalRequest.propertyId,
+          },
+          data: {
+            status: "AVAILABLE",
+          },
+        });
+
+        return updated;
+      },
+      {
+        isolationLevel:
+          Prisma.TransactionIsolationLevel.Serializable,
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Rental completed successfully",
+      data: completedRental,
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
